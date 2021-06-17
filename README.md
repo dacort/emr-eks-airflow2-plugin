@@ -18,12 +18,23 @@ As I'm intending to get this merged into the AWS providers package in Airflow an
 
         python setup.py bdist_wheel
 
-2. If you're running a containerized version of Airflow, the `Dockerfile` builds a custom container based off Airflow 2.0.1
+2. If you're running a containerized version of Airflow, the `Dockerfile` builds a custom container based off Airflow 2.1.0
 
         docker build -t airflow2-emr-eks .
+        docker tag airflow2-emr-eks ghcr.io/OWNER/airflow-emr-eks:2.1.0
+        docker push ghcr.io/OWNER/airflow-emr-eks:2.1.0
 
 Airflow 2.0 on Amazon WMAA is not yet supported.
 
 ## Usage
 
 See [`airflow2_emr_eks.py`](https://github.com/dacort/airflow-example-dags/blob/main/dags/airflow2_emr_eks.py) for an example Airflow 2.0 DAG.
+
+That example requires a new Connection in Airflow with the connection ID of `emr_eks` and the following "extra" config:
+
+```json
+{
+    "virtual_cluster_id": "abcdefghijklmno0123456789",
+    "job_role_arn": "arn:aws:iam::123456789012:role/emr_eks_default_role"
+}
+```

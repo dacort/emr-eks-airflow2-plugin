@@ -9,7 +9,7 @@ RUN python setup.py bdist_wheel
 
 # -----------------------------------------
 # Stage 1 - Install emr_containers onto Airflow
-FROM apache/airflow:2.0.1-python3.8
+FROM apache/airflow:2.1.0-python3.8
 
 COPY --from=0 /app/dist/emr_containers-0.0.0-py3-none-any.whl /
 RUN pip install /emr_containers-0.0.0-py3-none-any.whl
