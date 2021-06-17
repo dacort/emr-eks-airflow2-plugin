@@ -1,7 +1,7 @@
 from time import sleep
 from typing import Any, Dict, Optional
 
-
+from airflow.exceptions import AirflowException
 from airflow.providers.amazon.aws.hooks.base_aws import AwsBaseHook
 
 
@@ -14,6 +14,8 @@ class EMRContainerHook(AwsBaseHook):
         :class:`~airflow.providers.amazon.aws.hooks.base_aws.AwsBaseHook`
     :param sleep_time: Time (in seconds) to wait between two consecutive calls to check query status on EMR
     :type sleep_time: int
+    :param virtual_cluster_id: Cluster ID of the EMR on EKS virtual cluster
+    :type virtual_cluster_id: str
     """
 
     INTERMEDIATE_STATES = (
@@ -41,11 +43,30 @@ class EMRContainerHook(AwsBaseHook):
         execution_role_arn: str,
         release_label: str,
         job_driver: dict,
-        configuration_overrides: Optional[dict] = {},
+        configuration_overrides: Optional[dict] = None,
         client_request_token: Optional[str] = None,
     ) -> str:
         """
-        Submit a job to the EMR API and and return the job ID
+        Submit a job to the EMR Containers API and and return the job ID.
+        A job run is a unit of work, such as a Spark jar, PySpark script,
+        or SparkSQL query, that you submit to Amazon EMR on EKS.
+        See: https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/emr-containers.html#EMRContainers.Client.start_job_run
+
+        :param name: The name of the job run.
+        :type name: str
+        :param execution_role_arn: The IAM role ARN associated with the job run.
+        :type execution_role_arn: str
+        :param release_label: The Amazon EMR release version to use for the job run.
+        :type release_label: str
+        :param job_driver: Job configuration details, e.g. the sparkSubmitJobDriver.
+        :type job_driver: dict
+        :param configuration_overrides: The configuration overrides for the job run,
+            specifically either application configuration or monitoring configuration.
+        :type configuration_overrides: dict
+        :param client_request_token: The client idempotency token of the job run request.
+            Use this if you want to specify a unique ID to prevent two jobs from getting started.
+        :type client_request_token: str
+        :return: Job ID
         """
         params = {
             "name": name,
@@ -53,42 +74,47 @@ class EMRContainerHook(AwsBaseHook):
             "executionRoleArn": execution_role_arn,
             "releaseLabel": release_label,
             "jobDriver": job_driver,
-            "configurationOverrides": configuration_overrides,
+            "configurationOverrides": configuration_overrides or {},
         }
         if client_request_token:
             params["ClientRequestToken"] = client_request_token
 
         response = self.get_conn().start_job_run(**params)
-        job_id = response["id"]
-        return job_id
+
+        if response['ResponseMetadata']['HTTPStatusCode'] != 200:
+            raise AirflowException('Start Job Run failed: %s' % response)
+        else:
+            self.log.info('Start Job Run success - Job Id %s and virtual cluster id %s', response['id'],
+                          response['virtualClusterId'])
+            return response['id']
 
     def check_query_status(self, job_id: str) -> Optional[str]:
         """
         Fetch the status of submitted job run. Returns None or one of valid query states.
+        See: https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/emr-containers.html#EMRContainers.Client.describe_job_run
         :param job_id: Id of submitted job run
         :type job_id: str
         :return: str
         """
-        response = self.get_conn().describe_job_run(
-            virtualClusterId=self.virtual_cluster_id,
-            id=job_id,
-        )
-        state = None
         try:
-            state = response["jobRun"]["state"]
+            response = self.get_conn().describe_job_run(
+                virtualClusterId=self.virtual_cluster_id,
+                id=job_id,
+            )
+            return response["jobRun"]["state"]
+        except self.get_conn().exceptions.ResourceNotFoundException:
+            raise AirflowException('Job ID %s not found on Virtual Cluster %s' %
+                                   (job_id, self.virtual_cluster_id))
         except Exception as ex:  # pylint: disable=broad-except
             self.log.error("Exception while getting query state %s", ex)
-        finally:
-            # The error is being absorbed here and is being handled by the caller.
-            # The error is being absorbed to implement retries.
-            return state  # pylint: disable=lost-exception
+            return None
 
     def poll_query_status(
         self, job_id: str, max_tries: Optional[int] = None
     ) -> Optional[str]:
         """
         Poll the status of submitted job run until query state reaches final state.
-        Returns one of the final states
+        Returns one of the final states.
         :param job_id: Id of submitted job run
         :type job_id: str
         :param max_tries: Number of times to poll for query state before function exits
@@ -99,10 +125,15 @@ class EMRContainerHook(AwsBaseHook):
         final_query_state = (
             None  # Query state when query reaches final state or max_tries reached
         )
+
+        # TODO: Make this logic a little bit more robust. 
+        # Currently this polls until the state is *not* one of the INTERMEDIATE_STATES
+        # While that should work in most cases...it might not. :) 
         while True:
             query_state = self.check_query_status(job_id)
             if query_state is None:
-                self.log.info(f"Try {try_number}: Invalid query state. Retrying again")
+                self.log.info(
+                    f"Try {try_number}: Invalid query state. Retrying again")
             elif query_state in self.INTERMEDIATE_STATES:
                 self.log.info(
                     f"Try {try_number}: Query is still in an intermediate state - {query_state}"
