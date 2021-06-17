@@ -40,8 +40,13 @@ class EMRContainerOperator(BaseOperator):
     :type max_tries: int
     """
 
-    template_fields = ["name", "virtual_cluster_id",
-                       "execution_role_arn", "release_label", "job_driver"]
+    template_fields = [
+        "name",
+        "virtual_cluster_id",
+        "execution_role_arn",
+        "release_label",
+        "job_driver",
+    ]
     ui_color = "#f9c915"
 
     @apply_defaults
@@ -124,8 +129,7 @@ class EMRContainerOperator(BaseOperator):
                 self.log.error("Exception while cancelling query: %s", ex)
             finally:
                 if http_status_code is None or http_status_code != 200:
-                    self.log.error(
-                        "Unable to request query cancel on EMR. Exiting")
+                    self.log.error("Unable to request query cancel on EMR. Exiting")
                 else:
                     self.log.info(
                         "Polling EMR for query with id %s to reach final state",

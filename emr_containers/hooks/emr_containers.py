@@ -81,12 +81,15 @@ class EMRContainerHook(AwsBaseHook):
 
         response = self.get_conn().start_job_run(**params)
 
-        if response['ResponseMetadata']['HTTPStatusCode'] != 200:
-            raise AirflowException('Start Job Run failed: %s' % response)
+        if response["ResponseMetadata"]["HTTPStatusCode"] != 200:
+            raise AirflowException("Start Job Run failed: %s" % response)
         else:
-            self.log.info('Start Job Run success - Job Id %s and virtual cluster id %s', response['id'],
-                          response['virtualClusterId'])
-            return response['id']
+            self.log.info(
+                "Start Job Run success - Job Id %s and virtual cluster id %s",
+                response["id"],
+                response["virtualClusterId"],
+            )
+            return response["id"]
 
     def check_query_status(self, job_id: str) -> Optional[str]:
         """
@@ -103,8 +106,10 @@ class EMRContainerHook(AwsBaseHook):
             )
             return response["jobRun"]["state"]
         except self.get_conn().exceptions.ResourceNotFoundException:
-            raise AirflowException('Job ID %s not found on Virtual Cluster %s' %
-                                   (job_id, self.virtual_cluster_id))
+            raise AirflowException(
+                "Job ID %s not found on Virtual Cluster %s"
+                % (job_id, self.virtual_cluster_id)
+            )
         except Exception as ex:  # pylint: disable=broad-except
             self.log.error("Exception while getting query state %s", ex)
             return None
@@ -126,14 +131,13 @@ class EMRContainerHook(AwsBaseHook):
             None  # Query state when query reaches final state or max_tries reached
         )
 
-        # TODO: Make this logic a little bit more robust. 
+        # TODO: Make this logic a little bit more robust.
         # Currently this polls until the state is *not* one of the INTERMEDIATE_STATES
-        # While that should work in most cases...it might not. :) 
+        # While that should work in most cases...it might not. :)
         while True:
             query_state = self.check_query_status(job_id)
             if query_state is None:
-                self.log.info(
-                    f"Try {try_number}: Invalid query state. Retrying again")
+                self.log.info(f"Try {try_number}: Invalid query state. Retrying again")
             elif query_state in self.INTERMEDIATE_STATES:
                 self.log.info(
                     f"Try {try_number}: Query is still in an intermediate state - {query_state}"

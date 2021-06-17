@@ -26,6 +26,7 @@ class EMRContainerSensor(BaseSensorOperator):
         check query status on athena, defaults to 10
     :type sleep_time: int
     """
+
     INTERMEDIATE_STATES = (
         "PENDING",
         "SUBMITTED",
@@ -38,9 +39,9 @@ class EMRContainerSensor(BaseSensorOperator):
     )
     SUCCESS_STATES = ("COMPLETED",)
 
-    template_fields = ['virtual_cluster_id', 'job_id']
+    template_fields = ["virtual_cluster_id", "job_id"]
     template_ext = ()
-    ui_color = '#66c3ff'
+    ui_color = "#66c3ff"
 
     @apply_defaults
     def __init__(
@@ -49,7 +50,7 @@ class EMRContainerSensor(BaseSensorOperator):
         virtual_cluster_id: str,
         job_id: str,
         max_retries: Optional[int] = None,
-        aws_conn_id: str = 'aws_default',
+        aws_conn_id: str = "aws_default",
         sleep_time: int = 10,
         **kwargs: Any,
     ) -> None:
@@ -62,10 +63,10 @@ class EMRContainerSensor(BaseSensorOperator):
 
     def poke(self, context: dict) -> bool:
         state = self.hook.poll_query_status(self.job_id, self.max_retries)
-        self.log.info('EMR Containers Job - current state is  %s', state)
+        self.log.info("EMR Containers Job - current state is  %s", state)
 
         if state in self.FAILURE_STATES:
-            raise AirflowException('EMR Containers sensor failed')
+            raise AirflowException("EMR Containers sensor failed")
 
         if state in self.INTERMEDIATE_STATES:
             return False
@@ -74,4 +75,6 @@ class EMRContainerSensor(BaseSensorOperator):
     @cached_property
     def hook(self) -> EMRContainerHook:
         """Create and return an EMRContainerHook"""
-        return EMRContainerHook(self.aws_conn_id, self.sleep_time, self.virtual_cluster_id)
+        return EMRContainerHook(
+            self.aws_conn_id, self.sleep_time, self.virtual_cluster_id
+        )
