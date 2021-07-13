@@ -1,8 +1,8 @@
 # EMR on EKS Airflow v2 Plugin
 
-_NOTICE_ This is an experimental plugin that is under active development until it can be merged with [airflow proper](https://github.com/apache/airflow).
+_NOTICE_ This is an experimental plugin that is under active development until [this pull request](https://github.com/apache/airflow/pull/16766) is merged and released.
 
-It's only been used with self-managed Airflow 2.0 I originally deployed this using a custom Airflow build (see [Run EMR on EKS jobs on Apache Airflow](https://www.youtube.com/watch?v=lTGguM1_1z0?t=300s)).
+It's been tested with self-managed Airflow 2.0 (see [Run EMR on EKS jobs on Apache Airflow](https://www.youtube.com/watch?v=lTGguM1_1z0?t=300s)) and Airflow 2.0 on MWAA.
 
 ## Requirements
 
@@ -24,7 +24,11 @@ As I'm intending to get this merged into the AWS providers package in Airflow an
         docker tag airflow2-emr-eks ghcr.io/OWNER/airflow-emr-eks:2.1.0
         docker push ghcr.io/OWNER/airflow-emr-eks:2.1.0
 
-Airflow 2.0 on Amazon WMAA is not yet supported.
+3. If you're running Airflow 2.0 on Amazon WMAA, create a zip file with the plugin and an entrypoint. Then [follow the instructions](https://docs.aws.amazon.com/mwaa/latest/userguide/configuring-dag-import-plugins.html#configuring-dag-plugins-upload).
+
+        zip -j plugins.zip mwaa/mwaa_plugin.py
+        cd emr_containers
+        zip -r ../plugins.zip .
 
 ## Usage
 
