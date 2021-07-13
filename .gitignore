@@ -2,4 +2,5 @@
 build/
 dist/
 emr_containers.egg-info
-
+plugins.zip
+emr_eks_airflow_v2.zip
