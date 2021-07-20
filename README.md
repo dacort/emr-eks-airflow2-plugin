@@ -29,6 +29,10 @@ As I'm intending to get this merged into the AWS providers package in Airflow an
         zip -j plugins.zip mwaa/mwaa_plugin.py
         cd emr_containers
         zip -r ../plugins.zip .
+        
+You can also create a `requirements.txt` file that points to this repository and contains the following line:
+
+    emr-containers @ https://github.com/dacort/emr-eks-airflow2-plugin/archive/main.zip
 
 ## Usage
 
